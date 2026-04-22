@@ -1,40 +1,54 @@
-# Neuroimaging Mini Dataset (Codespaces Mini Repo)
+# Neuroimaging Teaching Demo
 
-A tiny repository for students to open in GitHub Codespaces and run a complete mini analysis.
+This is a small beginner-friendly project for practicing simple data analysis in Python.
 
-## What is included
+## What this script does
 
-- `data/neuroimaging_demo.csv`: a small neuroimaging-style dataset (participants, motion, beta values, accuracy)
-- `analyse.py`: a single analysis script using Pandas + Matplotlib
-- `requirements.txt`: minimal dependencies
+The script in `analyse.py`:
 
-## Learning goal
+1. Loads a CSV file of demo neuroimaging-style participant data.
+2. Prints basic dataset info (rows and column names).
+3. Calculates overall averages for:
+	- head motion (`MeanFD_mm`)
+	- task accuracy (`AccuracyPct`)
+4. Prints a group summary table (`Control` vs `Patient`).
 
-Each student can create their own Codespace, run one script, and get:
+## Project files
 
-- text summary statistics in the terminal
-- a simple plot saved to `results/motion_vs_visual_beta.png`
+- `data/neuroimaging_demo.csv`: input dataset
+- `analyse.py`: analysis script
+- `requirements.txt`: Python packages to install
 
-## Run in Codespaces
+## Quick start
+You can run the original script 'as is' - the two libraries it needs (Pandas, Numpy) are available in the default installation.
 
-1. Open the repository on GitHub.
-2. Select **Code** > **Codespaces** > **Create codespace on main**.
-3. In the Codespaces terminal, run:
+Once you start adding to the project, you will need some additional libraries. Often
+you will find that repositories on GitHub come with a list of modules that you need
+in a file called 'requirements.txt'. You can install all these modules in one go like this:
+
+
+Run these commands in the terminal:
 
 ```bash
-python -m pip install -r requirements.txt
-python analyse.py
+pip install -r requirements.txt
 ```
 
-## Typical extension tasks for students
+## What output should look like
 
-- Add 5 new rows to the CSV with their own invented participants.
-- Change the plot style or colours.
-- Compute one extra summary (for example, baseline vs follow-up change by group).
-- Save a cleaned CSV to `results/`.
+You should see:
 
-## Notes for teaching
+- a title: `Mini Neuroimaging Dataset`
+- row count and column names
+- average motion and accuracy
+- a small group summary table
 
-- This is intentionally small so setup is quick in class.
-- Uses only simple tooling (`pip`) and standard data science libraries.
-- Works well as a first Codespaces exercise before larger notebooks.
+## Beginner exercises
+
+1. Add 2-5 new participants to `data/neuroimaging_demo.csv`.
+2. Re-run the script and compare how averages change.
+3. Add one new summary metric to `analyse.py`.
+
+## If something fails
+
+- If `pip` is not found, try: `python -m pip install -r requirements.txt`
+- If imports fail, re-run the install command.

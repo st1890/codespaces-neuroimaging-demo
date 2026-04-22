@@ -1,79 +1,78 @@
-from pathlib import Path
+"""
+This script performs a tiny end-to-end analysis of a neuroimaging demo dataset.
+Here we are interested in two behavioural things that might affect the quality of our fMRI data:
+1. Head motion (MeanFD_mm) - more motion can degrade data quality.
+2. Task accuracy (AccuracyPct) - lower accuracy might indicate less engagement with the task.
+What it does:
+1. Loads the CSV file from the data folder.
+2. Prints basic dataset information (row count and column names).
+3. Computes overall averages for head motion and task accuracy.
+4. Computes per-group summaries (Control vs Patient) for key metrics.
+5. Prints the group summary table, sorted by highest average accuracy.
 
-import matplotlib.pyplot as plt
+The goal is to show a complete beginner-friendly analysis workflow in one file.
+"""
+
+from pathlib import Path
+import numpy as np
 import pandas as pd
 
+# This script is intentionally written as a simple top-level script (no main function)
+# so new learners can read it from top to bottom in execution order.
 
-def main() -> None:
-    project_root = Path(__file__).parent
-    data_path = project_root / "data" / "neuroimaging_demo.csv"
-    output_dir = project_root / "results"
-    output_dir.mkdir(exist_ok=True)
+# Build a path to the folder where this script lives.
+# Using Path(__file__) makes the script work no matter where you run it from.
+project_root = Path(__file__).parent
 
-    df = pd.read_csv(data_path)
+# Build the full path to the CSV file we want to analyse.
+data_path = project_root / "data" / "neuroimaging_demo.csv"
 
-    print("Mini Neuroimaging Dataset")
-    print("-" * 24)
-    print(f"Rows: {len(df)}")
-    print(f"Columns: {', '.join(df.columns)}")
-    print()
+# Read the CSV into a Pandas DataFrame.
+# A DataFrame is a table-like object (rows + columns), similar to a spreadsheet.
+df = pd.read_csv(data_path)
 
-    mean_fd = df["MeanFD_mm"].mean()
-    mean_acc = df["AccuracyPct"].mean()
+# Print a simple title section in the terminal.
+print("Mini Neuroimaging Dataset")
+print("-" * 24)
 
-    print(f"Average head motion (Mean FD): {mean_fd:.3f} mm")
-    print(f"Average task accuracy: {mean_acc:.1f}%")
-    print()
+# Show basic dataset shape information.
+print(f"Rows: {len(df)}")
 
-    by_group = (
-        df.groupby("Group", as_index=False)
-        .agg(
-            avg_motion_mm=("MeanFD_mm", "mean"),
-            avg_motor_beta=("MotorBeta", "mean"),
-            avg_visual_beta=("VisualBeta", "mean"),
-            avg_accuracy=("AccuracyPct", "mean"),
-            n=("ParticipantID", "count"),
-        )
-        .sort_values("avg_accuracy", ascending=False)
-    )
+# df.columns contains the column names; join them into one readable line.
+print(f"Columns: {', '.join(df.columns)}")
+print()
 
-    print("Group summary")
-    print(by_group.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+# Calculate overall averages across all participants.
+# np.mean returns the arithmetic mean of each selected numeric column.
+mean_fd = np.mean(df["MeanFD_mm"])
+mean_acc = np.mean(df["AccuracyPct"])
 
-    fig, ax = plt.subplots(figsize=(7, 5))
-    colour_map = {"Control": "steelblue", "Patient": "tomato"}
+# Print overall summary values with formatting:
+# - {mean_fd:.3f} means 3 decimal places
+# - {mean_acc:.1f} means 1 decimal place
+print(f"Average head motion (Mean FD): {mean_fd:.3f} mm")
+print(f"Average task accuracy: {mean_acc:.1f}%")
+print()
 
-    for group, group_df in df.groupby("Group"):
-        group_name = str(group)
-        ax.scatter(
-            group_df["MeanFD_mm"],
-            group_df["VisualBeta"],
-            s=80,
-            alpha=0.85,
-            label=group_name,
-            color=colour_map.get(group_name, "grey"),
-        )
+print("Group summary")
 
-    for _, row in df.iterrows():
-        ax.annotate(
-            row["ParticipantID"],
-            (row["MeanFD_mm"], row["VisualBeta"]),
-            textcoords="offset points",
-            xytext=(4, 4),
-            fontsize=8,
-        )
+# Group rows by the Group column (for example Control vs Patient),
+# then compute one set of summary statistics for each group.
+#
+# agg(...) defines output columns:
+# - N: number of participants
+# - AvgMotion: average MeanFD_mm
+# - AvgMotor: average MotorBeta
+# - AvgVisual: average VisualBeta
+# - AvgAccuracy: average AccuracyPct
+group_summary = df.groupby("Group").agg(
+    N=("ParticipantID", "count"),
+    AvgMotion=("MeanFD_mm", "mean"),
+    AvgMotor=("MotorBeta", "mean"),
+    AvgVisual=("VisualBeta", "mean"),
+    AvgAccuracy=("AccuracyPct", "mean"),
+)
 
-    ax.set_title("Head Motion vs Visual Activation")
-    ax.set_xlabel("Mean FD (mm)")
-    ax.set_ylabel("Visual Beta")
-    ax.legend(title="Group")
-    fig.tight_layout()
-
-    output_plot = output_dir / "motion_vs_visual_beta.png"
-    fig.savefig(str(output_plot), dpi=150)
-    print()
-    print(f"Saved plot: {output_plot}")
-
-
-if __name__ == "__main__":
-    main()
+# Sort groups so highest accuracy appears first, then round values
+# to make the printed table easier to read in class.
+print(group_summary.sort_values("AvgAccuracy", ascending=False).round(3))
