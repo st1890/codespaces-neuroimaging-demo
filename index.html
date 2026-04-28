@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giant Ground Pangolin Observations</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+q4gLFXsilJcZgiaD67UHiNwH0c3N5w3yS4iY/dkM=" crossorigin="" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f7f8fb;
+      color: #111;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 1rem;
+      background: #1b3b6f;
+      color: #fff;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.3rem;
+      line-height: 1.2;
+    }
+
+    header p {
+      margin: 0.5rem 0 0;
+      font-size: 0.96rem;
+      max-width: 40rem;
+      opacity: 0.92;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin: 1rem;
+    }
+
+    button {
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .primary {
+      background: #2c7be5;
+      color: #fff;
+    }
+
+    .secondary {
+      background: #f1f3f5;
+      color: #111;
+    }
+
+    .status-bar {
+      padding: 0 1rem 1rem;
+      font-size: 0.95rem;
+      color: #2b2b2b;
+    }
+
+    #map {
+      flex: 1 1 auto;
+      min-height: 55vh;
+    }
+
+    .footer {
+      padding: 0.75rem 1rem 1rem;
+      font-size: 0.92rem;
+      color: #4a4a4a;
+    }
+
+    a {
+      color: #1d5abe;
+    }
+
+    @media (max-width: 640px) {
+      header,
+      .controls,
+      .status-bar,
+      .footer {
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <h1>Giant Ground Pangolin Observations</h1>
+      <p>Recent iNaturalist sightings of <em>Smutsia gigantea</em> shown on an interactive map. Tap a marker for details and open the original observation.</p>
+    </header>
+
+    <div class="controls">
+      <button id="refreshBtn" class="primary">Refresh observations</button>
+      <button id="clearBtn" class="secondary">Clear markers</button>
+    </div>
+
+    <div class="status-bar" id="status">Loading observations...</div>
+    <div id="map"></div>
+    <div class="footer">Data from <a href="https://www.inaturalist.org/" target="_blank" rel="noopener noreferrer">iNaturalist</a>. Basemap from Esri World Imagery.</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j6b+YyMo3K/eEv5R3tFf9Gc1Qtnw6M7P2d7fG6Q=" crossorigin=""></script>
+  <script>
+    const observationsUrl = 'https://api.inaturalist.org/v1/observations?taxon_name=Smutsia+gigantea&per_page=50&order=desc&order_by=created_at';
+
+    const map = L.map('map', {
+      center: [0, 15],
+      zoom: 2,
+      minZoom: 2,
+      zoomControl: true,
+    });
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+      maxZoom: 19,
+      noWrap: false,
+    }).addTo(map);
+
+    const markerLayer = L.layerGroup().addTo(map);
+    const statusEl = document.getElementById('status');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      if (Number.isNaN(date.getTime())) {
+        return 'Unknown date';
+      }
+      return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }).format(date);
+    }
+
+    function updateStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function clearMarkers() {
+      markerLayer.clearLayers();
+      updateStatus('Markers cleared. Use Refresh to load observations again.');
+    }
+
+    function fitMapToMarkers() {
+      const bounds = markerLayer.getBounds();
+      if (!bounds.isValid()) {
+        return;
+      }
+      map.fitBounds(bounds, {
+        padding: [24, 24],
+        maxZoom: 10,
+      });
+    }
+
+    async function loadObservations() {
+      updateStatus('Fetching observations...');
+      refreshBtn.disabled = true;
+      clearBtn.disabled = true;
+
+      try {
+        const response = await fetch(observationsUrl);
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        const observations = Array.isArray(data.results) ? data.results : [];
+        markerLayer.clearLayers();
+
+        const validObservations = observations.filter(obs => {
+          return Number.isFinite(obs.latitude) && Number.isFinite(obs.longitude);
+        });
+
+        if (validObservations.length === 0) {
+          updateStatus('No valid observations found for Smutsia gigantea.');
+          return;
+        }
+
+        validObservations.forEach(obs => {
+          const lat = obs.latitude;
+          const lon = obs.longitude;
+          const commonName = obs.taxon && obs.taxon.preferred_common_name ? obs.taxon.preferred_common_name : 'Giant Ground Pangolin';
+          const scientificName = obs.taxon ? obs.taxon.name : 'Smutsia gigantea';
+          const observedOn = obs.observed_on || obs.created_at || '';
+          const user = obs.user && obs.user.login ? obs.user.login : 'Unknown observer';
+          const obsUrl = obs.uri || `https://www.inaturalist.org/observations/${obs.id}`;
+
+          const popupHtml = `
+            <div>
+              <strong>${escapeHtml(commonName)}</strong><br />
+              <em>${escapeHtml(scientificName)}</em><br />
+              <span>${escapeHtml(formatDate(observedOn))}</span><br />
+              <span>Observer: ${escapeHtml(user)}</span><br />
+              <a href="${escapeHtml(obsUrl)}" target="_blank" rel="noopener noreferrer">View observation</a>
+            </div>
+          `;
+
+          L.marker([lat, lon]).bindPopup(popupHtml).addTo(markerLayer);
+        });
+
+        updateStatus(`${validObservations.length} observation${validObservations.length === 1 ? '' : 's'} displayed.`);
+        fitMapToMarkers();
+      } catch (error) {
+        console.error(error);
+        updateStatus('Unable to load observations. Please try again later.');
+      } finally {
+        refreshBtn.disabled = false;
+        clearBtn.disabled = false;
+      }
+    }
+
+    refreshBtn.addEventListener('click', loadObservations);
+    clearBtn.addEventListener('click', clearMarkers);
+    loadObservations();
+  </script>
+</body>
+</html>
