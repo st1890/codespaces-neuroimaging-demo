@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # This script is intentionally written as a simple top-level script (no main function)
 # so new learners can read it from top to bottom in execution order.
@@ -79,4 +80,73 @@ group_summary = df.groupby("Group").agg(
 # Sort groups so highest accuracy appears first, then round values
 # to make the printed table easier to read in class.
 print(group_summary.sort_values("AvgAccuracy", ascending=False).round(3))
-  
+
+# Create one boxplot per numeric column so each measure can be inspected individually.
+numeric_cols = df.select_dtypes(include="number").columns
+
+# Use a polished seaborn style and a soft color palette.
+sns.set_theme(style="whitegrid", context="talk")
+palette = sns.color_palette("Set2", len(numeric_cols))
+
+# Arrange plots in two columns for better visual balance.
+n_cols = 2
+n_rows = int(np.ceil(len(numeric_cols) / n_cols))
+fig, axes = plt.subplots(
+    n_rows,
+    n_cols,
+    figsize=(14, 4.5 * n_rows),
+    facecolor="#f7f7f7",
+)
+
+axes = np.array(axes).reshape(-1)
+
+for i, (ax, col) in enumerate(zip(axes, numeric_cols)):
+    values = df[col].dropna()
+    color = palette[i]
+
+    sns.boxplot(
+        y=values,
+        ax=ax,
+        color=color,
+        width=0.4,
+        saturation=0.9,
+        fliersize=4,
+        linewidth=1.6,
+        boxprops={"alpha": 0.85},
+        medianprops={"color": "#222222", "linewidth": 2.2},
+        whiskerprops={"linewidth": 1.6},
+        capprops={"linewidth": 1.6},
+    )
+
+    # Overlay points so viewers can see sample spread and potential clusters.
+    sns.stripplot(
+        y=values,
+        ax=ax,
+        color="#2f2f2f",
+        size=4,
+        alpha=0.55,
+        jitter=0.18,
+    )
+
+    ax.set_title(f"{col}", fontsize=13, pad=10, weight="bold")
+    ax.set_xlabel("")
+    ax.set_ylabel("Value", fontsize=11)
+    ax.set_facecolor("#ffffff")
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+# Hide any unused axes when the number of columns is odd.
+for ax in axes[len(numeric_cols):]:
+    ax.axis("off")
+
+fig.suptitle(
+    "Distributions Across Individual Numeric Columns",
+    y=1.01,
+    fontsize=18,
+    weight="bold",
+)
+fig.tight_layout(pad=1.2)
+fig.savefig(project_root / "individual_column_boxplots.png", dpi=150)
+plt.show()
+
